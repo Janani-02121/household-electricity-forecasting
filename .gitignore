@@ -1,0 +1,6 @@
+venv/
+__pycache__/
+*.pyc
+uploads/*.csv
+model/prediction_history.json
+.vscode/

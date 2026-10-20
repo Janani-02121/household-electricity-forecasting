@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Prediction History{% endblock %}
+{% block content %}
+<h1>Prediction History</h1>
+<div class="card">
+{% if history %}
+  <div class="table-wrap"><table>
+    <tr><th>Date / time</th><th>Forecast period</th><th>Range</th><th>Average</th><th>Peak</th><th>Total</th><th>Model</th><th>Results</th></tr>
+    {% for h in history %}<tr><td>{{ h.time }}</td><td>{{ h.period }}</td><td>{{ h.start }} → {{ h.end }}</td>
+      <td class="num">{{ h.avg|num(3) }}</td><td class="num">{{ h.peak|num(3) }}</td><td class="num">{{ h.total|num(1) }}</td><td>{{ h.model }}</td>
+      <td><details><summary>{{ h.steps }} values</summary><div class="table-wrap" style="max-height:220px"><table>
+        {% for t, v in h.results %}<tr><td>{{ t }}</td><td class="num">{{ v }}</td></tr>{% endfor %}</table></div></details></td></tr>{% endfor %}
+  </table></div>
+  <form method="post" style="margin-top:1rem" onsubmit="return confirm('Clear all prediction history?')"><button class="btn danger sm" type="submit">Clear history</button></form>
+{% else %}<p class="muted">No predictions yet. <a href="{{ url_for('predict') }}">Generate a forecast</a>.</p>{% endif %}
+</div>
+{% endblock %}

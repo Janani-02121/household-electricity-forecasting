@@ -1,0 +1,56 @@
+{% extends "standalone.html" if standalone else "base.html" %}
+{% from "_macros.html" import rec, dist %}
+{% block title %}Project Report{% endblock %}
+{% block content %}
+<h1>Household Electricity Consumption Forecasting — Report</h1>
+<p class="muted">Generated {{ generated }} · Dataset: {{ filename }}{% if g_sample is defined and g_sample %} (SAMPLE DATA — synthetic){% endif %}</p>
+{% if not standalone %}<div class="noprint" style="margin-bottom:1rem">
+  <a class="btn sm" href="{{ url_for('report', download='html') }}">Download report (HTML)</a>
+  {% if forecast %}<a class="btn sm ghost" href="{{ url_for('report', download='csv') }}">Download forecast (CSV)</a>{% endif %}
+  <button class="btn sm ghost" onclick="window.print()">Print / Save as PDF</button></div>{% endif %}
+
+<div class="card"><h2>1. Dataset information</h2>
+  <ul class="clean"><li>Raw rows: <b>{{ rep.raw_rows|num(0) }}</b> · Columns: <b>{{ info.columns }}</b> ({{ info.column_names|join(', ') }})</li>
+  <li>Date column: {{ rep.columns.date }} · Time column: {{ rep.columns.time }} · Consumption column: {{ rep.columns.value }}</li>
+  <li>Clean records: <b>{{ rep.final_rows|num(0) }}</b> ({{ rep.frequency }}) from {{ rep.start }} to {{ rep.end }}</li></ul>
+  <h3>Preprocessing actions</h3><ul class="clean">{% for x in rep.actions %}<li>{{ x }}</li>{% endfor %}</ul></div>
+
+<div class="card"><h2>2. Dataset statistics</h2>
+  <table><tr><th>Statistic</th><th>Value ({{ unit }})</th><th>When</th></tr>
+  <tr><td>Average</td><td class="num">{{ a.stats.mean|num(3) }}</td><td>—</td></tr>
+  <tr><td>Minimum</td><td class="num">{{ a.stats.min|num(3) }}</td><td>{{ a.stats.min_time }}</td></tr>
+  <tr><td>Maximum</td><td class="num">{{ a.stats.max|num(3) }}</td><td>{{ a.stats.max_time }}</td></tr>
+  <tr><td>Total</td><td class="num">{{ a.stats.total|num(1) }}</td><td>—</td></tr>
+  <tr><td>Latest</td><td class="num">{{ a.stats.latest|num(3) }}</td><td>{{ a.stats.latest_time }}</td></tr>
+  <tr><td>Standard deviation</td><td class="num">{{ a.stats.std|num(3) }}</td><td>—</td></tr></table></div>
+
+<div class="card"><h2>3. Consumption analysis</h2>
+  <p class="small muted">Thresholds (percentiles): Low &lt; {{ a.thresholds.low }}, Moderate &lt; {{ a.thresholds.high }}, High &lt; {{ a.thresholds.peak }}, Peak ≥ {{ a.thresholds.peak }}.</p>
+  {{ dist(a.distribution) }}
+  <ul class="clean" style="margin-top:.8rem">
+    {% if a.peak_hour is defined %}<li>Peak hour: {{ '%02d'|format(a.peak_hour) }}:00 (average {{ a.peak_hour_value }})</li>{% endif %}
+    <li>Busiest weekday: {{ a.peak_weekday }} · Highest day: {{ a.peak_day }} ({{ a.peak_day_value }})</li>
+    <li>Trend: {{ a.trend.label }} ({{ a.trend.change_pct }}% vs previous {{ a.trend.window_days }} days)</li></ul></div>
+
+<div class="card"><h2>4. Machine Learning algorithm</h2>
+  <p><b>Random Forest Regressor</b> (scikit-learn): an ensemble of decision trees whose predictions are averaged. Features: calendar variables, lagged consumption and rolling means of past values. Chronological train/test split; the final model is refitted on all data for forecasting.</p>
+  {% if bundle %}<p>Trained {{ bundle.trained_at }} · {{ bundle.n_train|num(0) }} training / {{ bundle.n_test|num(0) }} testing records · {% for k, v in bundle.params.items() %}{{ k }}={{ v }}{{ ', ' if not loop.last }}{% endfor %}</p>
+  {% else %}<p class="muted">The model has not been trained yet.</p>{% endif %}</div>
+
+{% if bundle %}
+<div class="card"><h2>5. Model evaluation</h2>
+  <table><tr><th>MAE</th><th>MSE</th><th>RMSE</th><th>R²</th></tr>
+  <tr><td class="num">{{ bundle.metrics.mae|num(4) }}</td><td class="num">{{ bundle.metrics.mse|num(4) }}</td><td class="num">{{ bundle.metrics.rmse|num(4) }}</td><td class="num">{{ bundle.metrics.r2|num(4) }}</td></tr></table>
+  <ul class="clean" style="margin-top:.8rem">{% for l in explanation %}<li>{{ l }}</li>{% endfor %}</ul></div>
+{% endif %}
+
+<div class="card"><h2>6. Forecast results</h2>
+{% if forecast and a.forecast %}
+  <p>{{ forecast.label }} ({{ forecast.steps }} steps), generated {{ forecast.made_at }}.</p>
+  <ul class="clean"><li>Average predicted: <b>{{ a.forecast.mean }}</b> {{ unit }} ({{ a.forecast.mean_class }})</li>
+  <li>Peak predicted: {{ a.forecast.peak_value }} at {{ a.forecast.peak_time }}</li><li>Total predicted: {{ a.forecast.total|num(1) }} {{ unit }}</li>
+  <li>High/Peak records: {{ a.forecast.high_points }} of {{ a.forecast.points }}</li></ul>
+{% else %}<p class="muted">No forecast has been generated yet.</p>{% endif %}</div>
+
+<div class="card"><h2>7. Recommendations</h2>{% for r in a.recommendations %}{{ rec(r) }}{% endfor %}</div>
+{% endblock %}

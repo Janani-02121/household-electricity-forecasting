@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% from "_macros.html" import stat %}
+{% block title %}Model Evaluation{% endblock %}
+{% block content %}
+<h1>Model Evaluation</h1>
+<p class="muted">Evaluated on the <b>{{ bundle.n_test|num(0) }}</b> most recent records ({{ bundle.test_range[0][:16] }} → {{ bundle.test_range[1][:16] }}) that the model never saw during training.</p>
+<div class="stats">
+  {{ stat('MAE', bundle.metrics.mae|num(4), 'Mean Absolute Error') }}
+  {{ stat('MSE', bundle.metrics.mse|num(4), 'Mean Squared Error', 'teal') }}
+  {{ stat('RMSE', bundle.metrics.rmse|num(4), 'Root Mean Squared Error') }}
+  {{ stat('R² Score', bundle.metrics.r2|num(4), '1.0 = perfect fit', 'teal') }}
+</div>
+<div class="card"><h2>Actual vs predicted</h2><div class="chart tall"><canvas id="c_ap"></canvas></div></div>
+<div class="grid g2">
+  <div class="card"><h2>What do these results mean?</h2><ul class="clean">{% for l in explanation %}<li>{{ l }}</li>{% endfor %}</ul></div>
+  <div class="card"><h2>Feature importance</h2><div class="chart"><canvas id="c_imp"></canvas></div></div>
+</div>
+<div class="card"><h2>Model details</h2>
+  <ul class="clean"><li>Algorithm: RandomForestRegressor · trained {{ bundle.trained_at }} · dataset {{ bundle.dataset }}</li>
+  <li>Parameters: {% for k, v in bundle.params.items() %}<code>{{ k }}={{ v }}</code> {% endfor %}</li>
+  <li>Training records: {{ bundle.n_train|num(0) }} · Testing records: {{ bundle.n_test|num(0) }} · Features: {{ bundle.features|length }}</li></ul></div>
+{% endblock %}
+{% block scripts %}
+<script>
+  var C = {{ charts|tojson }};
+  ELF.line("c_ap", C.actual_pred.labels, [{label: "Actual", data: C.actual_pred.actual}, {label: "Predicted", data: C.actual_pred.pred}], {y: "{{ unit }}"});
+  ELF.hbar("c_imp", C.importance.labels, "Importance", C.importance.values, {});
+</script>
+{% endblock %}

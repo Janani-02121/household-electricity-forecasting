@@ -1,0 +1,10 @@
+{% macro stat(k, v, s='', cls='') %}
+<div class="stat {{ cls }} rise"><div class="k">{{ k }}</div><div class="v">{{ v }}</div><div class="s">{{ s }}</div></div>
+{% endmacro %}
+{% macro rec(r) %}
+<div class="rec {{ r.level }}"><h3>{{ r.title }}</h3><p>{{ r.text }}</p><div class="ev">Evidence: {{ r.evidence }}</div></div>
+{% endmacro %}
+{% macro dist(rows) %}
+<table><tr><th>Class</th><th>Records</th><th>Share</th></tr>
+{% for d in rows %}<tr><td><span class="badge b-{{ d.label }}">{{ d.label }}</span></td><td class="num">{{ d.count|num(0) }}</td><td class="num">{{ d.percent }}%</td></tr>{% endfor %}</table>
+{% endmacro %}

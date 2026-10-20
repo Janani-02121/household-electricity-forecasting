@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block hero %}
+<section class="hero"><div class="container">
+  <div class="rise">
+    <span class="pill">Machine Learning · Time-Series Forecasting</span>
+    <h1>Household Electricity <em>Consumption</em> Forecasting</h1>
+    <p class="lead">Upload your electricity usage history, discover when your home uses the most power, and forecast future consumption with a Random Forest Regressor — with practical energy-saving advice based on your own data.</p>
+    <div class="cta">
+      <a class="btn" href="{{ url_for('upload') }}">⚡ Start / Explore</a>
+      <a class="btn ghost" href="{{ url_for('dashboard') }}">Open Dashboard</a>
+    </div>
+    <div class="pill-row"><span class="pill">Flask</span><span class="pill">Pandas</span><span class="pill">NumPy</span><span class="pill">Scikit-learn</span><span class="pill">Chart.js</span></div>
+  </div>
+  <div class="scope rise">
+    <h3>Typical day in a home</h3>
+    <div class="chart" style="height:230px"><canvas id="heroChart"></canvas></div>
+    <p class="small muted">Example load profile: morning and evening peaks. Your own data is analysed in the Analysis module.</p>
+  </div>
+</div></section>
+{% endblock %}
+{% block content %}
+<h2 class="section-title">Key features</h2>
+<div class="grid g3">
+  {% for i, t, d in [('📂','CSV upload & validation','Upload your data, preview it and see missing values, duplicates and data types.'),
+  ('🧹','Real preprocessing','Dates, duplicates, invalid values, gaps and outliers are handled and reported.'),
+  ('📊','Exploratory analysis','Hourly, daily, weekly and monthly patterns with clear charts.'),
+  ('🌲','Random Forest model','Time-aware training with lag and calendar features, no data leakage.'),
+  ('🔮','Forecasting','Predict the next hours or days from the trained model and keep a history.'),
+  ('💡','Energy-saving tips','Recommendations that quote the evidence from your own data.')] %}
+  <div class="feature rise"><div class="ico">{{ i }}</div><h3>{{ t }}</h3><p class="muted">{{ d }}</p></div>
+  {% endfor %}
+</div>
+<h2 class="section-title">About the Machine Learning model</h2>
+<div class="card"><p><b>Random Forest Regressor</b> builds many decision trees on random parts of the data and averages their predictions. It copes well with non-linear patterns (such as evening peaks), is robust to noise and needs little tuning. Features include calendar information (hour, weekday, month, weekend) and past consumption (lags and rolling averages). The test set is always the <b>most recent</b> part of the data, so the model never sees the future during training.</p></div>
+<h2 class="section-title">Project workflow</h2>
+<div class="flow">
+  {% for s in ['Data Collection','Preprocessing','EDA','Feature Engineering','Train/Test Split','Random Forest Training','Evaluation','Forecasting','Visualization','Energy Analysis','Recommendations'] %}
+  <span class="step"><b>{{ loop.index }}</b>{{ s }}</span>{% if not loop.last %}<span class="arrow">→</span>{% endif %}
+  {% endfor %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+  var h = Array.from({length: 24}, (_, i) => i);
+  var v = h.map(i => +(0.45 + 0.55*Math.exp(-Math.pow(i-7,2)/4) + 1.1*Math.exp(-Math.pow(i-20,2)/5)).toFixed(2));
+  ELF.area("heroChart", h.map(i => String(i).padStart(2,"0") + ":00"), "Example load (kWh)", v, {});
+</script>
+{% endblock %}

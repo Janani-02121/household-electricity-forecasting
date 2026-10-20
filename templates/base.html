@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Household Electricity Forecasting{% endblock %}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+<nav class="nav"><div class="container">
+  <a class="brand" href="{{ url_for('index') }}"><i class="bolt"></i>Electricity<span>Forecast</span></a>
+  <button class="burger" id="burger" aria-label="Menu">☰</button>
+  {% set ep = request.endpoint %}
+  <ul class="menu" id="menu">
+    <li><a href="{{ url_for('index') }}" class="{{ 'active' if ep=='index' }}">Home</a></li>
+    <li><a href="{{ url_for('dashboard') }}" class="{{ 'active' if ep=='dashboard' }}">Dashboard</a></li>
+    <li><a href="{{ url_for('upload') }}" class="{{ 'active' if ep=='upload' }}">Upload</a></li>
+    <li><a href="{{ url_for('analysis') }}" class="{{ 'active' if ep=='analysis' }}">Analysis</a></li>
+    <li><a href="{{ url_for('train') }}" class="{{ 'active' if ep=='train' }}">Train</a></li>
+    <li><a href="{{ url_for('predict') }}" class="{{ 'active' if ep=='predict' }}">Forecast</a></li>
+    <li><a href="{{ url_for('results') }}" class="{{ 'active' if ep=='results' }}">Results</a></li>
+    <li><a href="{{ url_for('history') }}" class="{{ 'active' if ep=='history' }}">History</a></li>
+    <li><a href="{{ url_for('report') }}" class="{{ 'active' if ep=='report' }}">Report</a></li>
+    <li><a href="{{ url_for('about') }}" class="{{ 'active' if ep=='about' }}">About</a></li>
+  </ul>
+</div></nav>
+
+<div id="loader"><div class="spin"></div><div id="loader-text">Working…</div></div>
+
+{% block hero %}{% endblock %}
+<main><div class="container">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in messages %}
+      <div class="flash {{ cat }}"><span>{{ msg }}</span><button onclick="this.parentElement.remove()" aria-label="Close">×</button></div>
+    {% endfor %}
+  {% endwith %}
+  {% if g_sample and g_has_data and request.endpoint not in ('index','about') %}
+    <div class="banner">⚠ Using the bundled SAMPLE DATA (synthetic, for testing only). Upload your own CSV on the Upload page for real results.</div>
+  {% endif %}
+  {% block content %}{% endblock %}
+</div></main>
+
+<footer><div class="container">
+  <span>⚡ Household Electricity Consumption Forecasting — BCA Major Project</span>
+  <span>Python · Flask · Pandas · NumPy · Scikit-learn · © {{ now_year }}</span>
+</div></footer>
+<script src="{{ url_for('static', filename='js/chart.umd.js') }}"></script>
+<script src="{{ url_for('static', filename='js/script.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

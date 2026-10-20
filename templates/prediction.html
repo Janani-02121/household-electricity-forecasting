@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% from "_macros.html" import stat, rec %}
+{% block title %}Forecast{% endblock %}
+{% block content %}
+<h1>Electricity Consumption Forecast</h1>
+{% if not bundle %}
+  <div class="card"><p>The model has not been trained yet. <a class="btn sm" href="{{ url_for('train') }}">Train the model</a></p></div>
+{% else %}
+<div class="card">
+  <h2>Generate forecast</h2>
+  <p class="muted">The last record in the data is <b>{{ last_ts }}</b>. Forecasts start right after it ({{ cfg.label|lower }} steps, maximum {{ cfg.max_days }} days).
+  Each step uses the model's earlier predictions as history, so long forecasts are less certain.</p>
+  <form method="post" data-loading="Generating forecast with the Random Forest…">
+    <div class="form-grid">
+      <div><label>Forecast period</label><select name="days" id="days">
+        {% for d in ([1, 2, 3, 7, 14, 30] if cfg.max_days == 30 else [7, 14, 30, 60, 90, 180, 365]) %}<option value="{{ d }}" {{ 'selected' if d == 7 }}>{{ d }} day{{ 's' if d > 1 }}</option>{% endfor %}</select></div>
+      <div><label>…or forecast up to date (optional)</label><input type="date" name="end_date" id="end_date"></div>
+      <div><button class="btn" type="submit">🔮 Generate forecast</button></div>
+    </div>
+  </form>
+</div>
+
+{% if forecast %}
+<div class="stats">
+  {{ stat('Forecast period', forecast.label, forecast.steps ~ ' ' ~ ('hours' if bundle.freq == 'h' else 'days')) }}
+  {{ stat('Prediction date', forecast.made_at, 'Model: RandomForestRegressor', 'teal') }}
+  {{ stat('Average predicted', a.forecast.mean|num(3), unit ~ ' per record · ' ~ a.forecast.mean_class) }}
+  {{ stat('Peak predicted', a.forecast.peak_value|num(3), a.forecast.peak_time, 'teal') }}
+  {{ stat('Total predicted', a.forecast.total|num(1), unit) }}
+</div>
+<div class="card"><h2>Forecast chart</h2><div class="chart tall"><canvas id="c_fc"></canvas></div></div>
+<div class="grid g2">
+  <div class="card"><h2>Daily summary</h2><div class="table-wrap"><table>
+    <tr><th>Date</th><th>Average</th><th>Total</th><th>Peak</th><th>Level</th></tr>
+    {% for d in daily %}<tr><td>{{ d.date }}</td><td class="num">{{ d.avg|num(3) }}</td><td class="num">{{ d.total|num(2) }}</td><td class="num">{{ d.peak|num(3) }}</td><td><span class="badge b-{{ d.level }}">{{ d.level }}</span></td></tr>{% endfor %}</table></div></div>
+  <div class="card"><h2>Prediction table</h2><div class="table-wrap"><table>
+    <tr><th>Date / time</th><th>Predicted ({{ unit }})</th><th>Level</th></tr>
+    {% for r in rows %}<tr><td>{{ r.time }}</td><td class="num">{{ r.value|num(3) }}</td><td><span class="badge b-{{ r.level }}">{{ r.level }}</span></td></tr>{% endfor %}</table></div>
+    <p><a class="btn sm ghost" href="{{ url_for('report', download='csv') }}">Download CSV</a></p></div>
+</div>
+<div class="card"><h2>Recommendations for this forecast</h2>{% for r in a.recommendations %}{{ rec(r) }}{% endfor %}</div>
+{% endif %}
+{% endif %}
+{% endblock %}
+{% block scripts %}{% if forecast %}
+<script>
+  var C = {{ charts|tojson }}, F = C.forecast;
+  var all = F.hist_labels.concat(F.labels), pad = new Array(F.hist.length).fill(null);
+  ELF.line("c_fc", all, [{label: "Recent actual", data: F.hist.concat(new Array(F.values.length).fill(null))},
+    {label: "Forecast", data: pad.concat(F.values)}], {y: "{{ unit }}"});
+</script>{% endif %}
+{% endblock %}

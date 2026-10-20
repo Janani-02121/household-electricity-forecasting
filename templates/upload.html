@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Upload & Preprocessing{% endblock %}
+{% block content %}
+<h1>Dataset Upload & Preprocessing</h1>
+<p class="muted">Upload a CSV with a date/time column and an electricity consumption column (hourly, minute-level or daily).</p>
+
+<div class="grid g2">
+<div class="card">
+  <h2>1. Upload CSV</h2>
+  <form method="post" enctype="multipart/form-data" data-loading="Reading and inspecting your file…">
+    <input type="hidden" name="action" value="upload">
+    <label class="drop" id="drop" for="file">
+      <div class="big">📂</div><div><b>Click to choose</b> or drag & drop a .csv file</div>
+      <div class="small muted" id="fname">No file selected</div>
+      <input type="file" id="file" name="file" accept=".csv">
+    </label>
+    <p><button class="btn" type="submit">Upload & inspect</button></p>
+  </form>
+  <form method="post" data-loading="Loading sample dataset…"><input type="hidden" name="action" value="sample">
+    <button class="btn ghost sm" type="submit">Use bundled SAMPLE DATA</button></form>
+</div>
+<div class="card">
+  <h2>Expected format</h2>
+  <ul class="clean small"><li>One row per time step, e.g. <code>2024-05-01 18:00:00,1.25</code></li>
+  <li>A date/time column (or separate <code>Date</code> and <code>Time</code> columns)</li>
+  <li>A numeric consumption column (kWh or kW)</li>
+  <li>Separators <code>, ; tab |</code> and missing markers like <code>?</code> or <code>NA</code> are handled</li>
+  <li>At least 30 rows (3 weeks hourly / 90 days daily needed for training)</li></ul>
+</div>
+</div>
+
+{% if info %}
+<div class="card">
+  <h2>2. Dataset information — {{ filename }}</h2>
+  <div class="stats" style="margin-bottom:0">
+    <div class="stat"><div class="k">Records</div><div class="v">{{ info.rows|num(0) }}</div></div>
+    <div class="stat teal"><div class="k">Columns</div><div class="v">{{ info.columns }}</div></div>
+    <div class="stat"><div class="k">Missing values</div><div class="v">{{ info.missing_total|num(0) }}</div></div>
+    <div class="stat teal"><div class="k">Duplicate rows</div><div class="v">{{ info.duplicates|num(0) }}</div></div>
+  </div>
+  <h3 style="margin-top:1rem">Columns, data types and missing values</h3>
+  <div class="table-wrap"><table><tr><th>Column</th><th>Data type</th><th>Missing</th></tr>
+  {% for c in info.column_names %}<tr><td>{{ c }}</td><td>{{ info.dtypes[c] }}</td><td class="num">{{ info.missing[c]|num(0) }}</td></tr>{% endfor %}</table></div>
+  <h3 style="margin-top:1rem">Preview (first 10 rows)</h3>
+  <div class="table-wrap"><table><tr>{% for c in info.column_names %}<th>{{ c }}</th>{% endfor %}</tr>
+  {% for row in info.preview %}<tr>{% for c in info.column_names %}<td>{{ row[c] }}</td>{% endfor %}</tr>{% endfor %}</table></div>
+</div>
+
+<div class="card">
+  <h2>3. Select columns & apply preprocessing</h2>
+  <form method="post" data-loading="Cleaning the dataset…">
+    <input type="hidden" name="action" value="process">
+    <div class="form-grid">
+      <div><label>Date / time column</label><select name="date_col" required>
+        {% for c in info.column_names %}<option value="{{ c }}" {{ 'selected' if c==detected.date_col }}>{{ c }}</option>{% endfor %}</select></div>
+      <div><label>Separate time column (optional)</label><select name="time_col"><option value="">— none —</option>
+        {% for c in info.column_names %}<option value="{{ c }}" {{ 'selected' if c==detected.time_col }}>{{ c }}</option>{% endfor %}</select></div>
+      <div><label>Consumption column</label><select name="value_col" required>
+        {% for c in info.column_names %}<option value="{{ c }}" {{ 'selected' if c==detected.value_col }}>{{ c }}</option>{% endfor %}</select></div>
+      <div><label>Unit label</label><input name="unit" value="kWh" maxlength="12"></div>
+      <div><button class="btn" type="submit">Apply preprocessing</button></div>
+    </div>
+    <p class="small muted">Columns were detected automatically — change them if they are wrong.</p>
+  </form>
+</div>
+{% endif %}
+
+{% if report %}
+<div class="card">
+  <h2>4. Preprocessing report</h2>
+  <div class="stats" style="margin-bottom:1rem">
+    <div class="stat"><div class="k">Raw rows</div><div class="v">{{ report.raw_rows|num(0) }}</div></div>
+    <div class="stat teal"><div class="k">Clean records</div><div class="v">{{ report.final_rows|num(0) }}</div><div class="s">{{ report.frequency }}</div></div>
+    <div class="stat"><div class="k">Duplicates removed</div><div class="v">{{ (report.duplicate_rows + report.duplicate_timestamps)|num(0) }}</div></div>
+    <div class="stat teal"><div class="k">Gaps filled</div><div class="v">{{ report.gaps_filled|num(0) }}</div></div>
+    <div class="stat"><div class="k">Outliers capped</div><div class="v">{{ report.outliers|num(0) }}</div></div>
+    <div class="stat teal"><div class="k">Invalid dates / values</div><div class="v">{{ report.invalid_dates }} / {{ report.non_numeric + report.negative }}</div></div>
+  </div>
+  <ul class="clean">{% for act in report.actions %}<li>{{ act }}</li>{% endfor %}</ul>
+  {% if clean %}<h3>Clean dataset preview</h3>
+  <div class="table-wrap"><table><tr><th>timestamp</th><th>consumption</th></tr>
+  {% for r in clean %}<tr><td>{{ r.timestamp }}</td><td class="num">{{ r.consumption }}</td></tr>{% endfor %}</table></div>{% endif %}
+  <p><a class="btn" href="{{ url_for('analysis') }}">Explore the data →</a> <a class="btn ghost" href="{{ url_for('train') }}">Train the model</a></p>
+</div>
+{% endif %}
+{% endblock %}

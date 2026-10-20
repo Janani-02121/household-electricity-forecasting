@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% from "_macros.html" import stat %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h1>Dashboard</h1>
+<p class="muted">Dataset: <b>{{ g_dataset }}</b> · {{ a.stats.start }} → {{ a.stats.end }} · {{ report.frequency }} records</p>
+<div class="pipeline">
+  <div class="pipe done">Dataset uploaded</div><div class="pipe done">Preprocessed</div>
+  <div class="pipe {{ 'done' if bundle else 'todo' }}">Model trained</div>
+  <div class="pipe {{ 'done' if forecast else 'todo' }}">Forecast generated</div>
+</div>
+<div class="stats">
+  {{ stat('Total records', a.stats.records|num(0), 'after preprocessing') }}
+  {{ stat('Average consumption', a.stats.mean|num(3), unit ~ ' per record') }}
+  {{ stat('Minimum', a.stats.min|num(3), a.stats.min_time, 'teal') }}
+  {{ stat('Maximum', a.stats.max|num(3), a.stats.max_time) }}
+  {{ stat('Total consumption', a.stats.total|num(1), unit, 'teal') }}
+  {{ stat('Latest consumption', a.stats.latest|num(3), a.stats.latest_time) }}
+  {% if a.forecast %}{{ stat('Forecasted (average)', a.forecast.mean|num(3), forecast.label ~ ' · ' ~ a.forecast.mean_class, 'teal') }}
+  {% else %}{{ stat('Forecasted (average)', '—', 'No forecast yet', 'teal') }}{% endif %}
+  {% if bundle %}{{ stat('Model R² score', bundle.metrics.r2|num(3), 'RMSE ' ~ (bundle.metrics.rmse|num(3)) ~ ' · MAE ' ~ (bundle.metrics.mae|num(3))) }}
+  {% else %}{{ stat('Model performance', 'Not trained', 'Train the model first') }}{% endif %}
+</div>
+<div class="grid g2">
+  <div class="card"><h2>Historical consumption</h2><div class="chart"><canvas id="c_hist"></canvas></div></div>
+  <div class="card"><h2>{{ 'Future forecast' if a.forecast else 'Consumption classes' }}</h2><div class="chart"><canvas id="c_second"></canvas></div></div>
+</div>
+<div class="card"><h2>Quick actions</h2><div class="cta">
+  <a class="btn" href="{{ url_for('train') }}">Train model</a><a class="btn" href="{{ url_for('predict') }}">Forecast</a>
+  <a class="btn ghost" href="{{ url_for('analysis') }}">Analysis</a><a class="btn ghost" href="{{ url_for('report') }}">Report</a></div></div>
+{% endblock %}
+{% block scripts %}
+<script>
+  var C = {{ charts|tojson }};
+  ELF.area("c_hist", C.historical.labels, C.historical.title + " ({{ unit }})", C.historical.values, {y: "{{ unit }}"});
+  if (C.forecast) {
+    var all = C.forecast.hist_labels.concat(C.forecast.labels);
+    var pad = new Array(C.forecast.hist.length).fill(null);
+    ELF.line("c_second", all, [
+      {label: "Recent actual", data: C.forecast.hist.concat(new Array(C.forecast.values.length).fill(null))},
+      {label: "Forecast", data: pad.concat(C.forecast.values)}], {y: "{{ unit }}"});
+  } else {
+    ELF.bar("c_second", C.classes.labels, "Share of records (%)", C.classes.values, {multi: true, y: "%"});
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% from "_macros.html" import stat %}
+{% block title %}Train Model{% endblock %}
+{% block content %}
+<h1>Feature Engineering & Model Training</h1>
+{% if not g_has_data %}
+  <div class="card"><p>No dataset is loaded. <a href="{{ url_for('upload') }}">Upload a dataset</a> first.</p></div>
+{% else %}
+<div class="grid g2">
+<div class="card">
+  <h2>Train Random Forest Regressor</h2>
+  <p class="muted">{{ n_records|num(0) }} clean {{ cfg.label|lower }} records are available. The last part of the data (in time) is kept for testing; the model is then refitted on all data for forecasting.</p>
+  <form method="post" data-loading="Training the Random Forest… this can take a few seconds">
+    <div class="form-grid">
+      <div><label>Number of trees</label><input type="number" name="n_estimators" value="{{ bundle.params.n_estimators if bundle else 100 }}" min="10" max="500"></div>
+      <div><label>Max depth (blank = unlimited)</label><input type="number" name="max_depth" min="2" max="50" placeholder="unlimited"></div>
+      <div><label>Test set size</label><select name="test_size"><option value="0.1">10%</option><option value="0.2" selected>20%</option><option value="0.3">30%</option></select></div>
+      <div><button class="btn" type="submit">🌲 Train model</button></div>
+    </div>
+  </form>
+</div>
+<div class="card">
+  <h2>Training status</h2>
+  {% if bundle %}
+    <p><span class="badge b-Low">Trained</span> at {{ bundle.trained_at }}</p>
+    <ul class="clean">
+      <li>Training records: <b>{{ bundle.n_train|num(0) }}</b> ({{ bundle.train_range[0][:16] }} → {{ bundle.train_range[1][:16] }})</li>
+      <li>Testing records: <b>{{ bundle.n_test|num(0) }}</b> ({{ bundle.test_range[0][:16] }} → {{ bundle.test_range[1][:16] }})</li>
+      <li>Model parameters: {% for k, v in bundle.params.items() %}<code>{{ k }}={{ v }}</code> {% endfor %}</li>
+      <li>R² on test data: <b>{{ bundle.metrics.r2|num(3) }}</b> · RMSE: <b>{{ bundle.metrics.rmse|num(3) }}</b></li></ul>
+    <a class="btn sm" href="{{ url_for('results') }}">View evaluation</a> <a class="btn sm ghost" href="{{ url_for('predict') }}">Forecast</a>
+  {% else %}<p><span class="badge b-High">Not trained</span> Click “Train model”.</p>{% endif %}
+</div>
+</div>
+
+<div class="grid g2">
+<div class="card"><h2>Features (inputs X) and target (y)</h2>
+  <p class="small muted"><b>Target:</b> <code>consumption</code> at the current time step. <b>Features:</b> calendar information plus <u>past</u> values only (lags shifted back, rolling statistics computed on earlier records), so no future information leaks into training.</p>
+  <div class="table-wrap"><table><tr><th>Feature</th><th>Description</th></tr>
+  {% for n, d in features %}<tr><td><code>{{ n }}</code></td><td>{{ d }}</td></tr>{% endfor %}</table></div></div>
+{% if bundle %}
+<div class="card"><h2>Feature importance</h2><div class="chart tall"><canvas id="c_imp"></canvas></div></div>
+{% endif %}
+</div>
+{% if bundle %}
+<div class="card"><h2>Engineered feature sample</h2>
+  <div class="table-wrap"><table><tr>{% for k in bundle.preview[0].keys() %}<th>{{ k }}</th>{% endfor %}</tr>
+  {% for row in bundle.preview %}<tr>{% for v in row.values() %}<td class="num">{{ v }}</td>{% endfor %}</tr>{% endfor %}</table></div></div>
+{% endif %}
+{% endif %}
+{% endblock %}
+{% block scripts %}{% if bundle %}
+<script>
+  var imp = {{ bundle.importance[:12]|tojson }};
+  ELF.hbar("c_imp", imp.map(x => x[0]), "Importance", imp.map(x => x[1]), {});
+</script>{% endif %}
+{% endblock %}

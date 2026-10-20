@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% from "_macros.html" import stat, rec, dist %}
+{% block title %}Analysis{% endblock %}
+{% block content %}
+<h1>Exploratory & Energy Consumption Analysis</h1>
+<div class="stats">
+  {{ stat('Average', a.stats.mean|num(3), unit ~ ' per record') }}
+  {{ stat('Minimum (lowest)', a.stats.min|num(3), a.stats.min_time, 'teal') }}
+  {{ stat('Maximum (peak)', a.stats.max|num(3), a.stats.max_time) }}
+  {{ stat('Total', a.stats.total|num(1), unit, 'teal') }}
+  {{ stat('Average per day', a.daily_avg|num(2), unit ~ ' per day') }}
+  {{ stat('Trend', a.trend.label, a.trend.change_pct ~ '% vs previous ' ~ a.trend.window_days ~ ' days', 'teal') }}
+</div>
+
+<div class="card"><h2>Historical electricity consumption</h2><div class="chart tall"><canvas id="c_hist"></canvas></div></div>
+<div class="grid g2">
+  {% if charts.hourly %}<div class="card"><h2>Daily pattern — average by hour of day</h2><div class="chart"><canvas id="c_hourly"></canvas></div></div>{% endif %}
+  <div class="card"><h2>Daily consumption (last 60 days)</h2><div class="chart"><canvas id="c_daily"></canvas></div></div>
+  <div class="card"><h2>Weekly pattern — average by weekday</h2><div class="chart"><canvas id="c_weekly"></canvas></div></div>
+  <div class="card"><h2>Monthly pattern — average daily use per month</h2><div class="chart"><canvas id="c_monthly"></canvas></div></div>
+  <div class="card"><h2>Peak consumption — top 10 days</h2><div class="chart"><canvas id="c_peak"></canvas></div></div>
+  <div class="card"><h2>Consumption comparison (per day)</h2><div class="chart"><canvas id="c_comp"></canvas></div></div>
+</div>
+{% if charts.forecast %}<div class="card"><h2>Future forecast</h2><div class="chart"><canvas id="c_fc"></canvas></div></div>{% endif %}
+{% if charts.actual_pred %}<div class="card"><h2>Actual vs predicted (test set)</h2><div class="chart"><canvas id="c_ap"></canvas></div></div>{% endif %}
+
+<h2 class="section-title">Energy consumption analysis</h2>
+<div class="grid g2">
+  <div class="card"><h2>Consumption levels (data-driven thresholds)</h2>
+    <p class="small muted">Thresholds are percentiles of all {{ a.stats.records|num(0) }} records: <b>Low</b> &lt; {{ a.thresholds.low }} (33rd pct) · <b>Moderate</b> {{ a.thresholds.low }}–{{ a.thresholds.high }} (66th pct) · <b>High</b> {{ a.thresholds.high }}–{{ a.thresholds.peak }} · <b>Peak</b> ≥ {{ a.thresholds.peak }} (95th pct) — values in {{ unit }}.</p>
+    {{ dist(a.distribution) }}
+    <div class="chart" style="height:220px;margin-top:1rem"><canvas id="c_classes"></canvas></div></div>
+  <div class="card"><h2>Peak usage & trend</h2>
+    <ul class="clean">
+      {% if a.peak_hour is defined %}<li>Peak hour of day: <b>{{ '%02d'|format(a.peak_hour) }}:00</b> (average {{ a.peak_hour_value }} {{ unit }}); busiest hours: {% for h in a.peak_hours %}{{ '%02d'|format(h) }}:00{{ ', ' if not loop.last }}{% endfor %}</li>
+      <li>Lowest-usage hour: <b>{{ '%02d'|format(a.lowest_hour) }}:00</b></li>{% endif %}
+      <li>Busiest weekday: <b>{{ a.peak_weekday }}</b> · quietest weekday: <b>{{ a.low_weekday }}</b></li>
+      <li>Highest single day: <b>{{ a.peak_day }}</b> ({{ a.peak_day_value }} {{ unit }})</li>
+      <li>Average per day — weekdays: <b>{{ a.weekday_avg|num(2) }}</b>, weekends: <b>{{ a.weekend_avg|num(2) }}</b></li>
+      <li>Trend: <b>{{ a.trend.label }}</b> — last {{ a.trend.window_days }} days average {{ a.trend.recent_avg }} vs {{ a.trend.previous_avg }} before ({{ a.trend.change_pct }}%)</li>
+      <li>Unusual spikes (mean + 3 std): <b>{{ a.spike_count }}</b> record(s)</li>
+    </ul>
+    <h3>Forecasted consumption</h3>
+    {% if a.forecast %}<ul class="clean">
+      <li>Average forecast: <b>{{ a.forecast.mean }}</b> {{ unit }} per record — class <span class="badge b-{{ a.forecast.mean_class }}">{{ a.forecast.mean_class }}</span></li>
+      <li>Forecast peak: {{ a.forecast.peak_value }} at {{ a.forecast.peak_time }}</li>
+      <li>High/Peak records in forecast: {{ a.forecast.high_points }} of {{ a.forecast.points }}</li></ul>
+    {% else %}<p class="muted">No forecast yet. <a href="{{ url_for('predict') }}">Generate one</a>.</p>{% endif %}
+  </div>
+</div>
+<div class="card"><h2>💡 Energy-saving recommendations</h2>
+  {% for r in a.recommendations %}{{ rec(r) }}{% endfor %}
+  <p class="small muted">Recommendations are rule-based and quote the numbers they rely on; they do not promise specific savings.</p></div>
+{% endblock %}
+{% block scripts %}
+<script>
+  var C = {{ charts|tojson }}, U = "{{ unit }}";
+  ELF.area("c_hist", C.historical.labels, C.historical.title + " (" + U + ")", C.historical.values, {y: U});
+  if (C.hourly) ELF.bar("c_hourly", C.hourly.labels, "Average per hour (" + U + ")", C.hourly.values, {y: U});
+  ELF.line("c_daily", C.daily.labels, [{label: "Daily total (" + U + ")", data: C.daily.values}], {y: U});
+  ELF.bar("c_weekly", C.weekly.labels, "Average daily use (" + U + ")", C.weekly.values, {y: U});
+  ELF.line("c_monthly", C.monthly.labels, [{label: "Average daily use (" + U + ")", data: C.monthly.values, extra: {pointRadius: 3}}], {y: U});
+  ELF.hbar("c_peak", C.peak.labels, "Daily total (" + U + ")", C.peak.values, {});
+  ELF.bar("c_comp", C.comparison.labels, "Average per day (" + U + ")", C.comparison.values, {multi: true, y: U});
+  ELF.bar("c_classes", C.classes.labels, "Share of records (%)", C.classes.values, {multi: true, y: "%"});
+  if (C.forecast) {
+    var all = C.forecast.hist_labels.concat(C.forecast.labels), pad = new Array(C.forecast.hist.length).fill(null);
+    ELF.line("c_fc", all, [{label: "Recent actual", data: C.forecast.hist.concat(new Array(C.forecast.values.length).fill(null))},
+      {label: "Forecast", data: pad.concat(C.forecast.values)}], {y: U});
+  }
+  if (C.actual_pred) ELF.line("c_ap", C.actual_pred.labels, [{label: "Actual", data: C.actual_pred.actual}, {label: "Predicted", data: C.actual_pred.pred}], {y: U});
+</script>
+{% endblock %}
